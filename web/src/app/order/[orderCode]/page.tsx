@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { brand } from "@/content/landing";
+import { env } from "@/lib/env";
 import { formatDate, formatRupiah } from "@/lib/format";
+import {
+  decryptAccessCode,
+  formatAccessCode,
+} from "@/lib/services/access-code-service";
 import { getOrderByCode } from "@/lib/services/order-service";
+import { Button, ButtonLink } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +48,9 @@ export default async function OrderPage({ params }: OrderPageProps) {
 
   const latestPayment = order.payments[0];
   const isPending = order.status === "pending";
+  const accessCode = order.accessCode
+    ? formatAccessCode(decryptAccessCode(order.accessCode.codeEncrypted))
+    : null;
 
   return (
     <main id="main" className="min-h-screen">
@@ -117,15 +126,57 @@ export default async function OrderPage({ params }: OrderPageProps) {
                 Status diperbarui setelah pembayaran diverifikasi oleh payment
                 gateway. Simpan kode order ini.
               </p>
+              {env.paymentMock ? (
+                <form
+                  action="/api/dev/mock-payment"
+                  method="post"
+                  className="mt-5"
+                >
+                  <input
+                    type="hidden"
+                    name="orderCode"
+                    value={order.orderCode}
+                  />
+                  <Button type="submit" variant="secondary">
+                    Simulasikan pembayaran
+                  </Button>
+                  <p className="type-label mt-3 text-[12px]">
+                    Mode pengembangan: tombol ini membuat notifikasi pembayaran
+                    mock dengan signature yang valid.
+                  </p>
+                </form>
+              ) : null}
             </div>
           ) : null}
 
-          {order.status === "paid" ? (
+          {order.status === "paid" && accessCode ? (
             <div className="card mt-6 p-6">
               <p className="type-h3 text-ink">Pembayaran diterima</p>
-              <p className="type-body mt-3 text-[15px]">
-                Kode akses dan instruksi Discord tersedia di email yang kamu
-                daftarkan.
+              <p className="type-label mt-4">Kode akses</p>
+              <p className="mono mt-2 break-all text-xl text-ink">
+                {accessCode}
+              </p>
+              <p className="type-body mt-4 text-[15px]">
+                Masuk ke server Discord, buka channel verifikasi, lalu
+                jalankan perintah berikut.
+              </p>
+              <p className="mono mt-2 break-all text-[14px] text-ink-2">
+                /redeem kode:{accessCode}
+              </p>
+              {env.discord.inviteUrl ? (
+                <ButtonLink
+                  href={env.discord.inviteUrl}
+                  className="mt-6 w-full sm:w-auto"
+                >
+                  Gabung Discord
+                </ButtonLink>
+              ) : (
+                <p className="type-label mt-4">
+                  Link Discord belum diisi. Hubungi admin untuk undangan.
+                </p>
+              )}
+              <p className="type-label mt-4 text-[13px]">
+                Kode juga dikirim ke email yang kamu daftarkan.
               </p>
             </div>
           ) : null}

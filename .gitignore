@@ -16,6 +16,8 @@ bot/.env.*
 !bot/.env.example
 
 web/src/generated/
+web/storage/
+storage/
 web/next-env.d.ts
 *.tsbuildinfo
 *.log
