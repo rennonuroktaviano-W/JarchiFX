@@ -1,0 +1,180 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum OrderStatus {
+  pending
+  paid
+  expired
+  failed
+  refunded
+}
+
+enum AccessCodeStatus {
+  active
+  redeemed
+  expired
+  revoked
+}
+
+enum MemberStatus {
+  active
+  expired
+  revoked
+}
+
+enum RoleStatus {
+  pending
+  granted
+  failed
+}
+
+enum RedeemResult {
+  success
+  invalid
+  used
+  expired
+  revoked
+  rate_limited
+}
+
+enum JobStatus {
+  pending
+  processing
+  done
+  failed
+}
+
+model CourseClass {
+  id            Int      @id @default(autoincrement())
+  name          String   @db.VarChar(120)
+  slug          String   @unique @db.VarChar(120)
+  price         Int
+  accessDays    Int?     @map("access_days")
+  discordRoleId String   @default("") @map("discord_role_id") @db.VarChar(30)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  orders  Order[]
+  members Member[]
+
+  @@map("classes")
+}
+
+model Order {
+  id            BigInt      @id @default(autoincrement())
+  orderCode     String      @unique @map("order_code") @db.VarChar(32)
+  classId       Int         @map("class_id")
+  buyerName     String      @map("buyer_name") @db.VarChar(120)
+  buyerEmail    String      @map("buyer_email") @db.VarChar(190)
+  buyerWhatsapp String      @map("buyer_whatsapp") @db.VarChar(30)
+  amount        Int
+  status        OrderStatus @default(pending)
+  paidAt        DateTime?   @map("paid_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  class      CourseClass @relation(fields: [classId], references: [id])
+  payments   Payment[]
+  accessCode AccessCode?
+
+  @@index([status])
+  @@map("orders")
+}
+
+model Payment {
+  id          BigInt   @id @default(autoincrement())
+  orderId     BigInt   @map("order_id")
+  provider    String   @db.VarChar(30)
+  providerRef String   @unique @map("provider_ref") @db.VarChar(100)
+  method      String   @default("") @db.VarChar(40)
+  rawPayload  Json?    @map("raw_payload")
+  status      String   @db.VarChar(30)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+model AccessCode {
+  id                    BigInt           @id @default(autoincrement())
+  orderId               BigInt           @unique @map("order_id")
+  codeHash              String           @unique @map("code_hash") @db.Char(64)
+  codeEncrypted         String           @map("code_encrypted") @db.Text
+  status                AccessCodeStatus @default(active)
+  expiresAt             DateTime?        @map("expires_at")
+  redeemedAt            DateTime?        @map("redeemed_at")
+  redeemedByDiscordId   String?          @map("redeemed_by_discord_id") @db.VarChar(30)
+  createdAt             DateTime         @default(now()) @map("created_at")
+
+  order  Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  member Member?
+
+  @@index([status])
+  @@map("access_codes")
+}
+
+model Member {
+  id            BigInt       @id @default(autoincrement())
+  discordUserId String       @map("discord_user_id") @db.VarChar(30)
+  classId       Int          @map("class_id")
+  accessCodeId  BigInt       @unique @map("access_code_id")
+  accessUntil   DateTime?    @map("access_until")
+  roleGrantedAt DateTime?    @map("role_granted_at")
+  status        MemberStatus @default(active)
+  roleStatus    RoleStatus   @default(pending) @map("role_status")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  class      CourseClass @relation(fields: [classId], references: [id])
+  accessCode AccessCode  @relation(fields: [accessCodeId], references: [id])
+
+  @@unique([discordUserId, classId])
+  @@index([status])
+  @@map("members")
+}
+
+model RedeemAttempt {
+  id            BigInt       @id @default(autoincrement())
+  discordUserId String       @map("discord_user_id") @db.VarChar(30)
+  codeHashTried String       @map("code_hash_tried") @db.Char(64)
+  result        RedeemResult
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@index([discordUserId, createdAt])
+  @@map("redeem_attempts")
+}
+
+model Admin {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(120)
+  email        String   @unique @db.VarChar(190)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("admins")
+}
+
+model Job {
+  id          BigInt    @id @default(autoincrement())
+  type        String    @db.VarChar(60)
+  payload     Json
+  status      JobStatus @default(pending)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3) @map("max_attempts")
+  runAt       DateTime  @default(now()) @map("run_at")
+  lastError   String?   @map("last_error") @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, runAt])
+  @@map("jobs")
+}
