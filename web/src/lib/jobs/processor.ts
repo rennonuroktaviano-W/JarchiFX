@@ -4,7 +4,10 @@ import {
   decryptAccessCode,
   formatAccessCode,
 } from "@/lib/services/access-code-service";
-import { grantDiscordRole } from "@/lib/services/discord-service";
+import {
+  grantDiscordRole,
+  revokeDiscordRole,
+} from "@/lib/services/discord-service";
 import { sendAccessCodeEmail } from "@/lib/services/email-service";
 
 type SendAccessCodePayload = {
@@ -13,6 +16,11 @@ type SendAccessCodePayload = {
 
 type GrantDiscordRolePayload = {
   memberId: string;
+};
+
+type RevokeDiscordRolePayload = {
+  discordUserId: string;
+  roleId: string;
 };
 
 async function processSendAccessCode(payload: SendAccessCodePayload) {
@@ -56,12 +64,24 @@ async function processGrantDiscordRole(payload: GrantDiscordRolePayload) {
   });
 }
 
+async function processRevokeDiscordRole(payload: RevokeDiscordRolePayload) {
+  if (!payload.roleId) {
+    return;
+  }
+
+  await revokeDiscordRole(payload.discordUserId, payload.roleId);
+}
+
 export async function processJob(job: Job) {
   switch (job.type) {
     case "send_access_code":
       return processSendAccessCode(job.payload as SendAccessCodePayload);
     case "grant_discord_role":
       return processGrantDiscordRole(job.payload as GrantDiscordRolePayload);
+    case "revoke_discord_role":
+      return processRevokeDiscordRole(
+        job.payload as unknown as RevokeDiscordRolePayload,
+      );
     default:
       throw new Error(`Tipe job tidak dikenal: ${job.type}`);
   }

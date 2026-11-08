@@ -42,6 +42,15 @@ npm run deploy
 npm start
 ```
 
+## Admin panel
+
+Buka `http://localhost:3000/admin`. Login memakai akun hasil seed:
+
+- Email: `admin@jarchifx.local`
+- Password: `admin12345`
+
+Ganti password seed sebelum deploy. Panel menyediakan ringkasan penjualan, daftar order dan kode, kirim ulang email, generate kode manual, revoke kode/member, serta pengaturan paket dan role Discord.
+
 ## Environment
 
 Salin `web/.env.example` menjadi `web/.env` dan `bot/.env.example` menjadi `bot/.env`, lalu isi nilainya. Jangan commit file `.env`.
