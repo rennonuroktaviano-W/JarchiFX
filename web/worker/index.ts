@@ -2,6 +2,7 @@ import "dotenv/config";
 import { schedule } from "node-cron";
 import { prisma } from "../src/lib/prisma";
 import { processJob } from "../src/lib/jobs/processor";
+import { revokeDiscordRole } from "../src/lib/services/discord-service";
 
 const JOB_INTERVAL_MS = 5000;
 const BACKOFF_MINUTES = [1, 5, 15];
@@ -84,6 +85,31 @@ async function expireStaleRecords() {
   });
 }
 
+async function expireMembers() {
+  const members = await prisma.member.findMany({
+    where: { status: "active", accessUntil: { lt: new Date() } },
+    include: { class: true },
+  });
+
+  for (const member of members) {
+    if (member.roleStatus === "granted" && member.class.discordRoleId) {
+      try {
+        await revokeDiscordRole(
+          member.discordUserId,
+          member.class.discordRoleId,
+        );
+      } catch (error) {
+        console.error("Gagal mencabut role Discord", error);
+      }
+    }
+
+    await prisma.member.update({
+      where: { id: member.id },
+      data: { status: "expired" },
+    });
+  }
+}
+
 async function main() {
   console.log("Worker JarchiFX berjalan.");
 
@@ -94,6 +120,12 @@ async function main() {
   schedule("*/10 * * * *", () => {
     expireStaleRecords().catch((error) =>
       console.error("Gagal membersihkan data kedaluwarsa", error),
+    );
+  });
+
+  schedule("0 2 * * *", () => {
+    expireMembers().catch((error) =>
+      console.error("Gagal mencabut akses kedaluwarsa", error),
     );
   });
 

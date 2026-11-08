@@ -4,10 +4,15 @@ import {
   decryptAccessCode,
   formatAccessCode,
 } from "@/lib/services/access-code-service";
+import { grantDiscordRole } from "@/lib/services/discord-service";
 import { sendAccessCodeEmail } from "@/lib/services/email-service";
 
 type SendAccessCodePayload = {
   orderId: string;
+};
+
+type GrantDiscordRolePayload = {
+  memberId: string;
 };
 
 async function processSendAccessCode(payload: SendAccessCodePayload) {
@@ -33,10 +38,30 @@ async function processSendAccessCode(payload: SendAccessCodePayload) {
   });
 }
 
+async function processGrantDiscordRole(payload: GrantDiscordRolePayload) {
+  const member = await prisma.member.findUnique({
+    where: { id: BigInt(payload.memberId) },
+    include: { class: true },
+  });
+
+  if (!member || member.roleStatus === "granted") {
+    return;
+  }
+
+  await grantDiscordRole(member.discordUserId, member.class.discordRoleId);
+
+  await prisma.member.update({
+    where: { id: member.id },
+    data: { roleStatus: "granted", roleGrantedAt: new Date() },
+  });
+}
+
 export async function processJob(job: Job) {
   switch (job.type) {
     case "send_access_code":
       return processSendAccessCode(job.payload as SendAccessCodePayload);
+    case "grant_discord_role":
+      return processGrantDiscordRole(job.payload as GrantDiscordRolePayload);
     default:
       throw new Error(`Tipe job tidak dikenal: ${job.type}`);
   }
