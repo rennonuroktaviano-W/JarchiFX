@@ -7,6 +7,28 @@ import { revokeDiscordRole } from "../src/lib/services/discord-service";
 const JOB_INTERVAL_MS = 5000;
 const BACKOFF_MINUTES = [1, 5, 15];
 
+type FailedJobAlert = {
+  type: string;
+  payload: unknown;
+};
+
+async function handlePermanentFailure(job: FailedJobAlert, message: string) {
+  if (job.type === "grant_discord_role") {
+    const payload = job.payload as { memberId?: string };
+
+    if (payload.memberId && /^\d+$/.test(payload.memberId)) {
+      await prisma.member.updateMany({
+        where: { id: BigInt(payload.memberId) },
+        data: { roleStatus: "failed" },
+      });
+    }
+  }
+
+  console.error(
+    `[ALERT] Job ${job.type} gagal permanen setelah retry: ${message}`,
+  );
+}
+
 async function runOneJob() {
   const job = await prisma.job.findFirst({
     where: { status: "pending", runAt: { lte: new Date() } },
@@ -43,6 +65,8 @@ async function runOneJob() {
         where: { id: job.id },
         data: { status: "failed", lastError: message },
       });
+
+      await handlePermanentFailure(job, message);
     } else {
       const delayMinutes =
         BACKOFF_MINUTES[Math.min(attempts - 1, BACKOFF_MINUTES.length - 1)];

@@ -56,6 +56,14 @@ async function processGrantDiscordRole(payload: GrantDiscordRolePayload) {
     return;
   }
 
+  if (member.status !== "active") {
+    return;
+  }
+
+  if (member.accessUntil && member.accessUntil.getTime() < Date.now()) {
+    return;
+  }
+
   await grantDiscordRole(member.discordUserId, member.class.discordRoleId);
 
   await prisma.member.update({

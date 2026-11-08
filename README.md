@@ -56,3 +56,24 @@ Ganti password seed sebelum deploy. Panel menyediakan ringkasan penjualan, dafta
 Salin `web/.env.example` menjadi `web/.env` dan `bot/.env.example` menjadi `bot/.env`, lalu isi nilainya. Jangan commit file `.env`.
 
 Midtrans dan Discord tidak wajib diisi untuk pengembangan. Dengan `PAYMENT_MOCK=true`, halaman order menyediakan tombol simulasi pembayaran yang tetap melewati verifikasi signature webhook.
+
+## Keamanan
+
+- Ganti `ADMIN_PASSWORD`, `CODE_PEPPER`, `INTERNAL_API_TOKEN`, token bot, dan kunci Midtrans sebelum produksi.
+- Beri bot Discord hanya izin **Manage Roles** (tanpa Administrator). Posisikan role bot di atas semua role kelas.
+- Batasi akses `/api/internal/*` di reverse proxy/firewall ke host bot, selain verifikasi bearer token.
+- Jalankan `npm run check:content` sebelum deploy. Perintah ini gagal selama masih ada placeholder `[ISI]`.
+- Jangan pernah commit `.env`, isi `storage/`, atau kredensial nyata ke riwayat git.
+
+## Pemeriksaan
+
+```powershell
+cd web
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npm run check:content
+```
+
+`check:content` sengaja gagal selama konten mentor dan materi masih berupa placeholder `[ISI]`.
